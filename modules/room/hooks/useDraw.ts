@@ -112,7 +112,6 @@ export const useDraw = (blocked: boolean) => {
   };
 
   const clearOnYourMove = () => {
-    drawAndSet();
     tempImageData = undefined;
   };
 
@@ -125,7 +124,8 @@ export const useDraw = (blocked: boolean) => {
 
     let addMove = true;
     if (options.mode === "select" && tempMoves.length) {
-      clearOnYourMove();
+      drawAndSet();
+      tempImageData = undefined;
       let x = tempMoves[0][0];
       let y = tempMoves[0][1];
       let width = tempMoves[tempMoves.length - 1][0] - x;
@@ -169,6 +169,7 @@ export const useDraw = (blocked: boolean) => {
     tempMoves = [];
     tempCircle = { cX: 0, cY: 0, radiusX: 0, radiusY: 0 };
     tempSize = { width: 0, height: 0 };
+    tempImageData = undefined;
 
     if (options.mode !== "select") {
       socket.emit("draw", move);

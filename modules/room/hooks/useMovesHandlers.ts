@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
 import { getStringFromRgba } from "@/common/lib/rgba";
 import { socket } from "@/common/lib/socket";
@@ -10,8 +10,6 @@ import { useSetSavedMoves } from "@/common/recoil/savedMoves";
 import { useCtx } from "./useCtx";
 import { useRefs } from "./useRefs";
 import { useSelection } from "./useSelection";
-
-let prevMovesLength = 0;
 
 export const useMovesHandlers = (clearOnYourMove: () => void) => {
   const { canvasRef, minimapRef, bgRef } = useRefs();
@@ -150,22 +148,37 @@ export const useMovesHandlers = (clearOnYourMove: () => void) => {
     copyCanvasToSmall();
   };
 
+  const prevMovesLength = useRef(0);
+
+  const clearOnYourMoveRef = useRef(clearOnYourMove);
+  useEffect(() => {
+    clearOnYourMoveRef.current = clearOnYourMove;
+  }, [clearOnYourMove]);
+
+  const handleAddMyMoveRef = useRef(handleAddMyMove);
+  useEffect(() => {
+    handleAddMyMoveRef.current = handleAddMyMove;
+  }, [handleAddMyMove]);
+
   useSelection(drawAllMoves);
 
   useEffect(() => {
     socket.on("your_move", (move) => {
-      clearOnYourMove();
-      handleAddMyMove(move);
+      clearOnYourMoveRef.current();
+      handleAddMyMoveRef.current(move);
       setTimeout(clearSelection, 100);
     });
 
     return () => {
       socket.off("your_move");
     };
-  }, [clearOnYourMove, clearSelection, handleAddMyMove]);
+  }, [clearSelection]);
 
   useEffect(() => {
-    if (prevMovesLength >= sortedMoves.length || !prevMovesLength) {
+    if (
+      prevMovesLength.current >= sortedMoves.length ||
+      !prevMovesLength.current
+    ) {
       drawAllMoves();
     } else {
       const lastMove = sortedMoves[sortedMoves.length - 1];
@@ -177,9 +190,7 @@ export const useMovesHandlers = (clearOnYourMove: () => void) => {
       } else drawMove(lastMove);
     }
 
-    return () => {
-      prevMovesLength = sortedMoves.length;
-    };
+    prevMovesLength.current = sortedMoves.length;
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sortedMoves]);
