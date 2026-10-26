@@ -1,120 +1,140 @@
-# Digiboard - Real-time Collaborative Whiteboard
+# Real-time Collaborative Whiteboard
 
-<div align="center">
-  <img src="public/vercel.svg" alt="Digiboard Logo" width="200"/>
-  <p><strong>A powerful, real-time collaborative whiteboard application built with Next.js and Socket.IO</strong></p>
-</div>
+A high-performance, real-time collaborative whiteboard web application built with **Next.js**, **Express**, and **Socket.IO**. Designed for distributed teams and classrooms to brainstorm, sketch, and interact in real time with synchronized canvas state, live cursor tracking, and embedded chat.
+
+---
 
 ## ✨ Features
 
-- **Real-time Collaboration**
-  - Multiple users can draw simultaneously
-  - Live cursor tracking
-  - Real-time chat functionality
-  - User presence indicators
+- **⚡ Real-time Multi-user Collaboration**
+  - Instant canvas stroke synchronization across all connected peers
+  - Live cursor tracking with user name tags and assigned identity colors
+  - Real-time room chat with user badges
+  - Live user presence indicators (join/leave alerts)
 
-- **Rich Drawing Tools**
-  - Multiple shapes (line, circle, rectangle)
-  - Image support (paste or upload)
-  - Custom color picker
-  - Adjustable line width
-  - Eraser tool
-  - Selection tool
+- **🎨 Rich Drawing Suite**
+  - Freehand drawing with adjustable stroke width and custom color palettes (RGBA support)
+  - Geometric shapes: lines, rectangles, and circles
+  - Eraser and selection tools
+  - Image paste & upload onto the canvas
 
-- **Advanced Canvas Features**
-  - Infinite canvas with pan and zoom
-  - Minimap navigation
-  - Undo/Redo functionality
-  - Background grid options
+- **🧭 Advanced Canvas Navigation**
+  - Infinite canvas with smooth panning and zooming
+  - Interactive minimap overview for quick navigation
+  - Multi-user undo stack per session
+  - Configurable canvas background grid styles
 
-- **Modern UI/UX**
-  - Responsive design
-  - Dark mode support
-  - Intuitive toolbar
-  - Toast notifications
-  - Modal system
+- **🛡️ Robust Backend Architecture**
+  - Custom Express + Socket.IO server integrated with Next.js
+  - Room isolation with max-occupancy caps and dynamic join validation
+  - In-memory room lifecycle management with automatic cleanup on room vacancy (preventing memory leaks)
+  - Defensive event guards preventing uncaught exceptions on out-of-order socket actions
+
+---
 
 ## 🚀 Tech Stack
 
-- **Frontend**
-  - [Next.js](https://nextjs.org/) - React framework
-  - [Recoil](https://recoiljs.org/) - State management
-  - [Framer Motion](https://www.framer.com/motion/) - Animations
-  - [TailwindCSS](https://tailwindcss.com/) - Styling
+- **Frontend:** Next.js, React, Recoil (State Management), Framer Motion (Animations), TailwindCSS
+- **Backend:** Node.js, Express, Socket.IO (WebSockets), TypeScript
+- **Tools & Build:** TypeScript, ESLint, Prettier, Nodemon
 
-- **Backend**
-  - [Express](https://expressjs.com/) - Node.js web framework
-  - [Socket.IO](https://socket.io/) - Real-time communication
-  - [TypeScript](https://www.typescriptlang.org/) - Type safety
+---
 
-## 🛠️ Installation
+## 🛠️ Architecture & System Design
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/Jovial-Kanwadia/digiboard.git
-   cd digiboard
-   ```
+```
+                     ┌────────────────────────────────────────┐
+                     │          Browser Client(s)             │
+                     │  (HTML5 Canvas, Recoil State, Minimap) │
+                     └───────────────────▲────────────────────┘
+                                         │
+                               WebSocket │ (Socket.IO Events)
+                                         │
+                     ┌───────────────────▼────────────────────┐
+                     │          Node / Express Server         │
+                     │  - Socket.IO Room Manager              │
+                     │  - In-Memory User & Move State Map     │
+                     │  - Memory Leak Prevention on Vacancy   │
+                     │  - Next.js SSR / Static Request Bridge │
+                     └────────────────────────────────────────┘
+```
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   # or
-   yarn install
-   ```
+### Key Socket Events
 
-3. **Start the development server**
-   ```bash
-   npm run dev
-   # or
-   yarn dev
-   ```
+| Event | Direction | Description |
+| :--- | :--- | :--- |
+| `create_room` | Client ➔ Server | Creates a new whiteboard session with a unique alphanumeric room code |
+| `join_room` | Client ➔ Server | Validates room existence and room capacity before admitting user |
+| `draw` / `user_draw` | Bidirectional | Broadcasts stroke coordinates, shape geometry, and color metadata |
+| `undo` / `user_undo` | Bidirectional | Safely pops the user's latest move without crashing backend state |
+| `mouse_move` | Client ➔ Server | Streams cursor coordinates throttled for smooth peer tracking |
+| `send_msg` / `new_msg` | Bidirectional | Delivers room-wide chat messages with sender attribution |
 
-4. **Open [http://localhost:3000](http://localhost:3000) in your browser**
+---
 
 ## 🏗️ Project Structure
 
 ```
-digiboard/
-├── app/                    # Next.js app directory
-│   ├── [roomId]/          # Dynamic room routes
-│   ├── contexts/          # React contexts
-│   └── layout.tsx         # Root layout
-├── common/                # Shared utilities
-│   ├── components/        # Reusable components
-│   ├── constants/         # Global constants
+Realtime-Collaborative-Whiteboard/
+├── common/                # Shared utilities, hooks, constants & types
+│   ├── components/        # Reusable UI widgets (modals, icons, inputs)
+│   ├── constants/         # Color palettes, canvas defaults
 │   ├── hooks/            # Custom React hooks
-│   ├── lib/              # Utility functions
-│   └── types/            # TypeScript types
+│   ├── lib/              # Socket.IO client instance
+│   ├── recoil/           # Global state atoms & selectors
+│   └── types/            # TypeScript interfaces & socket event contracts
 ├── modules/               # Feature modules
-│   ├── home/             # Home page module
-│   └── room/             # Whiteboard room module
-├── public/               # Static assets
-└── server/               # Backend server code
+│   ├── home/             # Landing page & room creation/joining interface
+│   └── room/             # Whiteboard canvas, toolbar, chat, minimap & hooks
+├── pages/                 # Next.js Pages router
+│   ├── _app.tsx          # App root wrapper with RecoilRoot & ToastContainer
+│   ├── index.tsx         # Home route
+│   └── [roomId].tsx      # Dynamic room route
+├── public/                # Static assets
+├── scripts/               # Runtime compatibility polyfills
+├── server/                # Backend Express + Socket.IO server
+│   └── index.ts          # Server entry point & socket event handlers
+├── next.config.js         # Next.js configuration
+├── package.json           # Dependencies and run scripts
+└── tsconfig.json          # TypeScript compiler configuration
 ```
 
-## 🔧 Configuration
+---
 
-The project can be configured through various configuration files:
+## 🚦 Getting Started
 
-- `next.config.ts` - Next.js configuration
-- `tsconfig.json` - TypeScript configuration
-- `postcss.config.mjs` - PostCSS configuration
-- `eslint.config.mjs` - ESLint configuration
+### Prerequisites
+- Node.js (v18+)
+- npm or yarn
 
-## 🚥 Available Scripts
+### 1. Clone the repository
+```bash
+git clone https://github.com/naresh04122005/Realtime-Collaborative-Whiteboard.git
+cd Realtime-Collaborative-Whiteboard
+```
 
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run start` - Start production server
-- `npm run lint` - Run ESLint
+### 2. Install dependencies
+```bash
+npm install
+```
 
-## 🤝 Contributing
+### 3. Run development server
+```bash
+npm run dev
+```
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-1. Fork the project
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+### 4. Build for production
+```bash
+npm run build
+npm start
+```
 
+---
+
+## 🧑‍💻 Author
+
+**Naresh**  
+- Final Year, Indian Institute of Information Technology (IIIT) Lucknow  
+- GitHub: [@naresh04122005](https://github.com/naresh04122005)  

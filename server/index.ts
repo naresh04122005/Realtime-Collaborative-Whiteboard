@@ -1,3 +1,4 @@
+import buffer from "buffer";
 import { createServer } from "http";
 
 import {} from "@/common/types/global";
@@ -6,6 +7,11 @@ import express from "express";
 import next, { NextApiHandler } from "next";
 import { Server } from "socket.io";
 import { v4 } from "uuid";
+
+// Compatibility polyfill for modern Node runtimes
+if (!(buffer as any).SlowBuffer) {
+  (buffer as any).SlowBuffer = buffer.Buffer;
+}
 
 const port = parseInt(process.env.PORT || "3000", 10);
 const dev = process.env.NODE_ENV !== "production";
@@ -25,27 +31,29 @@ nextApp.prepare().then(async () => {
   const rooms = new Map<string, Room>();
 
   const addMove = (roomId: string, socketId: string, move: Move) => {
-    const room = rooms.get(roomId)!;
+    const room = rooms.get(roomId);
+    if (!room) return;
 
-    if (!room.users.has(socketId)) {
-      room.usersMoves.set(socketId, [move]);
+    if (!room.usersMoves.has(socketId)) {
+      room.usersMoves.set(socketId, []);
     }
 
     room.usersMoves.get(socketId)!.push(move);
   };
 
   const undoMove = (roomId: string, socketId: string) => {
-    const room = rooms.get(roomId)!;
+    const room = rooms.get(roomId);
+    if (!room) return;
 
-    room.usersMoves.get(socketId)!.pop();
+    const moves = room.usersMoves.get(socketId);
+    if (moves && moves.length > 0) {
+      moves.pop();
+    }
   };
 
   io.on("connection", (socket) => {
     const getRoomId = () => {
       const joinedRoom = [...socket.rooms].find((room) => room !== socket.id);
-
-      if (!joinedRoom) return socket.id;
-
       return joinedRoom;
     };
 
@@ -55,10 +63,18 @@ nextApp.prepare().then(async () => {
 
       const userMoves = room.usersMoves.get(socketId);
 
-      if (userMoves) room.drawed.push(...userMoves);
+      if (userMoves) {
+        room.drawed.push(...userMoves);
+        room.usersMoves.delete(socketId);
+      }
       room.users.delete(socketId);
 
       socket.leave(roomId);
+
+      // Clean up empty room from memory to prevent memory leaks
+      if (room.users.size === 0) {
+        rooms.delete(roomId);
+      }
     };
 
     socket.on("create_room", (username) => {
@@ -98,6 +114,7 @@ nextApp.prepare().then(async () => {
 
     socket.on("joined_room", () => {
       const roomId = getRoomId();
+      if (!roomId) return;
 
       const room = rooms.get(roomId);
       if (!room) return;
@@ -116,6 +133,7 @@ nextApp.prepare().then(async () => {
 
     socket.on("leave_room", () => {
       const roomId = getRoomId();
+      if (!roomId) return;
       leaveRoom(roomId, socket.id);
 
       io.to(roomId).emit("user_disconnected", socket.id);
@@ -123,6 +141,7 @@ nextApp.prepare().then(async () => {
 
     socket.on("draw", (move) => {
       const roomId = getRoomId();
+      if (!roomId) return;
 
       const timestamp = Date.now();
 
@@ -140,6 +159,7 @@ nextApp.prepare().then(async () => {
 
     socket.on("undo", () => {
       const roomId = getRoomId();
+      if (!roomId) return;
 
       undoMove(roomId, socket.id);
 
@@ -147,15 +167,20 @@ nextApp.prepare().then(async () => {
     });
 
     socket.on("mouse_move", (x, y) => {
-      socket.broadcast.to(getRoomId()).emit("mouse_moved", x, y, socket.id);
+      const roomId = getRoomId();
+      if (!roomId) return;
+      socket.broadcast.to(roomId).emit("mouse_moved", x, y, socket.id);
     });
 
     socket.on("send_msg", (msg) => {
-      io.to(getRoomId()).emit("new_msg", socket.id, msg);
+      const roomId = getRoomId();
+      if (!roomId) return;
+      io.to(roomId).emit("new_msg", socket.id, msg);
     });
 
     socket.on("disconnecting", () => {
       const roomId = getRoomId();
+      if (!roomId) return;
       leaveRoom(roomId, socket.id);
 
       io.to(roomId).emit("user_disconnected", socket.id);

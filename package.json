@@ -5,7 +5,7 @@
     "dev": "nodemon server/index.ts",
     "dev:client": "ts-node server/index.ts",
     "build:server": "tsc --project tsconfig.server.json",
-    "build:next": "next build",
+    "build:next": "node -r ./scripts/polyfill.js node_modules/next/dist/bin/next build",
     "build": "npm-run-all build:*",
     "start": "node build/index.js",
     "lint": "next lint"

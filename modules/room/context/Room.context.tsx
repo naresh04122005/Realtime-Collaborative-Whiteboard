@@ -57,6 +57,11 @@ const RoomContextProvider = ({ children }: { children: ReactChild }) => {
   const x = useMotionValue(0);
   const y = useMotionValue(0);
 
+  const usersRef = useRef(users);
+  useEffect(() => {
+    usersRef.current = users;
+  }, [users]);
+
   useEffect(() => {
     socket.on("room", (room, usersMovesToParse, usersToParse) => {
       const usersMoves = new Map<string, Move[]>(JSON.parse(usersMovesToParse));
@@ -95,10 +100,13 @@ const RoomContextProvider = ({ children }: { children: ReactChild }) => {
     });
 
     socket.on("user_disconnected", (userId) => {
-      toast(`${users.get(userId)?.name || "Anonymous"} has left the room.`, {
-        position: "top-center",
-        theme: "colored",
-      });
+      toast(
+        `${usersRef.current.get(userId)?.name || "Anonymous"} has left the room.`,
+        {
+          position: "top-center",
+          theme: "colored",
+        }
+      );
 
       handleRemoveUser(userId);
     });
@@ -108,7 +116,7 @@ const RoomContextProvider = ({ children }: { children: ReactChild }) => {
       socket.off("new_user");
       socket.off("user_disconnected");
     };
-  }, [handleAddUser, handleRemoveUser, setRoom, users]);
+  }, [handleAddUser, handleRemoveUser, setRoom]);
 
   return (
     <roomContext.Provider
